@@ -7,6 +7,5 @@ in release.pkgs.stdenv.lib.overrideDerivation release.ttt-server.env (oldAttrs: 
     release.cabal
     release.pkgs.awscli
     release.pkgs.haskellPackages.cabal2nix
-    release.pkgs.haskellPackages.steeloverseer
   ];
 })

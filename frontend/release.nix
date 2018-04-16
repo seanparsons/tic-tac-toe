@@ -58,7 +58,15 @@ let
     };
   };
 
-  pkgs = import <nixpkgs> { inherit config; };
+  bootstrap = import <nixpkgs> { };
+  nixpkgs = builtins.fromJSON (builtins.readFile ../nixpkgs.json);
+  nixpkgssrc = bootstrap.fetchFromGitHub {
+    owner = "NixOS";
+    repo = "nixpkgs";
+    inherit (nixpkgs) rev sha256;
+  };
+  pkgs = import nixpkgssrc { inherit config; };
+  #pkgs = import <nixpkgs> { inherit config; };
 
 in
   { ttt-frontend = pkgs.haskell.packages.${compiler}.ttt-frontend;
