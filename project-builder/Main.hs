@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Main where
 
@@ -10,8 +10,9 @@ import Control.Parallel.Strategies
 import Data.Binary
 import Data.Foldable
 import Data.Hashable
+import Data.List (intercalate)
 import qualified Data.Map.Strict as M
-import Data.Text hiding (find)
+import Data.Text hiding (find, intercalate)
 import qualified Data.Text as T
 import Data.Typeable
 import Development.Shake
@@ -21,17 +22,17 @@ newtype AppBuildPath = AppBuildPath () deriving (Show, Typeable, Eq, Hashable, B
 type instance RuleResult AppBuildPath = FilePath
 
 pureScriptModules :: [(FilePattern, String)]
-pureScriptModules = [ ("homepage.js", "Homepage")
+pureScriptModules = [ ("main.js", "Main")
                     ]
 
 serverPlanJsonToPath :: PlanJson -> IO FilePath
 serverPlanJsonToPath planJson = do
-  let arch = pjArch planJson
-  let os = pjOs planJson
-  let ghcVer = dispPkgId $ pjCompilerId planJson
-  projectUnit <- maybe (fail "Something is not right.") return $ find (\(Unit _ (PkgId (PkgName name) _) _ _ _ _ _) -> name == "ttt-server") $ pjUnits planJson
-  let projectVersion = dispPkgId $ uPId projectUnit
-  return $ unpack $ T.intercalate "/" ["build", arch `mappend` "-" `mappend` os, ghcVer, projectVersion, "x", "ttt-server", "build", "ttt-server", "ttt-server"]
+  let arch = unpack $ pjArch planJson
+  let os = unpack $ pjOs planJson
+  let ghcVer = unpack $ dispPkgId $ pjCompilerId planJson
+  projectUnit <- maybe (fail "Something is not right.") return $ find (\(Unit _ (PkgId (PkgName name) _) _ _ _ _ _) -> name == pack "ttt-server") $ pjUnits planJson
+  let projectVersion = unpack $ dispPkgId $ uPId projectUnit
+  return $ intercalate "/" ["build", arch ++ "-" ++ os, ghcVer, projectVersion, "x", "ttt-server", "build", "ttt-server", "ttt-server"]
 
 determineBuildPath :: MonadIO m => AppBuildPath -> m FilePath
 determineBuildPath (AppBuildPath _) = liftIO $ do
@@ -42,41 +43,40 @@ determineBuildPath (AppBuildPath _) = liftIO $ do
 buildPureScriptProject :: String
 buildPureScriptProject = "psc-package build -- --output ../project-builder/_build/compiled-purescript"
 
-buildPureScriptBundle :: String
-buildPureScriptBundle = "purs bundle \"_build/compiled-purescript/**/*.js\" --module"
-
 buildServerProject :: String
 buildServerProject = "cabal new-build --builddir=../project-builder/_build/server"
 
+getStdout :: (Exit, Stdout String, Stderr String) -> String
+getStdout (_, (Stdout contents), _) = contents
+
 main :: IO ()
-main = shakeArgs shakeOptions{shakeFiles="_build"} $ do
+main = shakeArgs shakeOptions{shakeFiles="_build", shakeThreads = 0} $ do
   let serverExecutable = "_build/ttt-server" <.> exe
+  let bundledPurescriptModules = fmap (\m -> "_build/modules" </> (fst m)) pureScriptModules
 
   getBuildPath <- addOracle determineBuildPath
   
-  want [serverExecutable]
+  want ([serverExecutable] ++ bundledPurescriptModules)
 
   "clean" ~> do
-    putNormal "Cleaning files in _build"
+    putNormal "Cleaning Project"
     removeFilesAfter "_build" ["//*"]
 
-  "_build/compiled-purescript//*.js" %> \_ -> do
-    pureScriptFiles <- getDirectoryFiles "../frontend/src" ["//*.purs"]
-    need pureScriptFiles
+  "_build/.psc-package.json" %> \out -> do
+    putNormal "Build Purescript Code"
     cmd_ (Cwd "../frontend") buildPureScriptProject
+    copyFileChanged "../frontend/psc-package.json" out
 
   forM_ pureScriptModules $ \(builtFile, psModule) -> ("_build/modules/" ++ builtFile) %> \out -> do
-    compiledPureScriptFiles <- getDirectoryFiles "_build/compiled-purescript" ["//*.js"]
-    need compiledPureScriptFiles
-    cmd_ buildPureScriptBundle psModule (">" :: String) out
+    putNormal ("Create Purescript Module " ++ psModule)
+    need ["_build/.psc-package.json"]
+    bundleResult <- cmd (Cwd "_build/compiled-purescript") "purs" "bundle" "**/*.js" "--module" psModule
+    writeFileChanged out $ getStdout bundleResult
 
   serverExecutable %> \_ -> do
-    putNormal "Build server executable"
+    putNormal "Build Server Executable"
     serverFiles <- getDirectoryFiles "../server/src" ["//*.hs"]
-    let frontEndFiles = fmap fst pureScriptModules
-    let neededFiles = fmap ("../server/src" </>) serverFiles ++ fmap ("_build/modules" </>) frontEndFiles ++ ["../server/ttt-server.cabal"]
-    putNormal $ show neededFiles
-    need neededFiles
+    let neededFiles = fmap ("../server/src" </>) serverFiles ++ bundledPurescriptModules ++ ["../server/ttt-server.cabal"]
     cmd_ (Cwd "../server") buildServerProject
     projectBuildPath <- getBuildPath $ AppBuildPath ()
     copyFileChanged ("_build/server/" ++ projectBuildPath) "_build/ttt-server"
