@@ -21,7 +21,4 @@ cabal.project.local~
 .HTF/
 .ghc.environment.*
 *.sublime-*
-*.code-*
-.psc-package
-.psci_modules
-frontend/output
+_build
