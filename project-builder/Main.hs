@@ -64,19 +64,24 @@ main = shakeArgs shakeOptions{shakeFiles="_build", shakeThreads = 0} $ do
 
   "_build/.psc-package.json" %> \out -> do
     putNormal "Build Purescript Code"
+    pureScriptCodeFiles <- getDirectoryFiles "../frontend/src" ["//*.purs"]
+    need $ fmap ("../frontend/src" </>) pureScriptCodeFiles
     cmd_ (Cwd "../frontend") buildPureScriptProject
     copyFileChanged "../frontend/psc-package.json" out
 
   forM_ pureScriptModules $ \(builtFile, psModule) -> ("_build/modules/" ++ builtFile) %> \out -> do
     putNormal ("Create Purescript Module " ++ psModule)
     need ["_build/.psc-package.json"]
+    compiledPureScriptFiles <- getDirectoryFiles "_build/compiled-purescript" ["//*.js"]
+    need $ fmap ("_build/compiled-purescript" </>) compiledPureScriptFiles
     bundleResult <- cmd (Cwd "_build/compiled-purescript") "purs" "bundle" "**/*.js" "--module" psModule
     writeFileChanged out $ getStdout bundleResult
 
   serverExecutable %> \_ -> do
     putNormal "Build Server Executable"
     serverFiles <- getDirectoryFiles "../server/src" ["//*.hs"]
-    let neededFiles = fmap ("../server/src" </>) serverFiles ++ bundledPurescriptModules ++ ["../server/ttt-server.cabal"]
+    need ["../server/ttt-server.cabal"]
+    need $ fmap ("../server/src/" </>) serverFiles
     cmd_ (Cwd "../server") buildServerProject
     projectBuildPath <- getBuildPath $ AppBuildPath ()
     copyFileChanged ("_build/server/" ++ projectBuildPath) "_build/ttt-server"
