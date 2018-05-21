@@ -2,8 +2,5 @@
 
 set -e
 
-cd server
-cabal new-build all
-cd ../frontend
-psc-package build
-purs bundle "output/**/*.js" --module Main
+cd project-builder
+cabal new-run project-builder

@@ -55,7 +55,7 @@ main = shakeArgs shakeOptions{shakeFiles="_build", shakeThreads = 0} $ do
   let bundledPurescriptModules = fmap (\m -> "_build/modules" </> (fst m)) pureScriptModules
 
   getBuildPath <- addOracle determineBuildPath
-  
+
   want ([serverExecutable] ++ bundledPurescriptModules)
 
   "clean" ~> do
