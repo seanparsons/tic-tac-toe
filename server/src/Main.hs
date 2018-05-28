@@ -1,7 +1,9 @@
-{-# LANGUAGE OverloadedStrings, DataKinds #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DataKinds #-}
 
 module Main where
 
+import Clay hiding ((!))
 import Data.Foldable
 import Data.Maybe
 import Network.Wai
@@ -23,16 +25,24 @@ api = Proxy
 server :: Server API
 server = return homepage
 
+siteCSS :: Css
+siteCSS = Clay.header |> nav ? do
+  td # "#grid-square" ? do
+    width $ px 300
+    height $ px 300
+
 homepage :: Homepage
 homepage = H.docTypeHtml $ do
   H.head $ do
     H.title "Tic-Tac-Toe"
   H.body $ do
     H.h1 "Tic-Tac-Toe"
-    forM_ [0..2] $ \row -> do
-      H.div ! HA.class_ "grid-row" $ do
-        forM_ [0..2] $ \column -> do
-          H.div ! HA.class_ "grid-square" $ H.toMarkup $ show (row, column)
+    H.table $ do
+      forM_ [0..2] $ \row -> do
+        H.tr ! HA.class_ "grid-row" $ do
+          forM_ [0..2] $ \column -> do
+            H.td ! HA.class_ "grid-square" $ H.toMarkup $ show (row, column)
+    H.script $ H.toMarkup $ render siteCSS
 
 
 app :: Application
