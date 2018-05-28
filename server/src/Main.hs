@@ -26,10 +26,10 @@ server :: Server API
 server = return homepage
 
 siteCSS :: Css
-siteCSS = Clay.header |> nav ? do
-  td # "#grid-square" ? do
-    width $ px 300
-    height $ px 300
+siteCSS = do
+  ".grid-square" ? do
+    width $ px 200
+    height $ px 200
 
 homepage :: Homepage
 homepage = H.docTypeHtml $ do
@@ -41,8 +41,11 @@ homepage = H.docTypeHtml $ do
       forM_ [0..2] $ \row -> do
         H.tr ! HA.class_ "grid-row" $ do
           forM_ [0..2] $ \column -> do
-            H.td ! HA.class_ "grid-square" $ H.toMarkup $ show (row, column)
-    H.script $ H.toMarkup $ render siteCSS
+            let elemName = H.stringValue ("square-" ++ (show row) ++ "-" ++ (show column))
+            H.td ! HA.id elemName ! HA.class_ "grid-square" $ do
+              H.toMarkup $ show (row, column)
+    H.style ! HA.type_ "text/css" $ do
+      H.toMarkup $ render siteCSS
 
 
 app :: Application
