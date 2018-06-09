@@ -12,6 +12,7 @@ import Data.IORef
 import Data.HashMap.Strict hiding ((!))
 import Data.Maybe
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 import Network.Wai
 import qualified Network.Wai.Handler.Warp as Warp
 import Servant
@@ -21,6 +22,8 @@ import Text.Blaze.Html5 ((!))
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as HA
 import Text.Read hiding (lift)
+import qualified Data.UUID as UUID
+import qualified Data.UUID.V4 as UUID
 import Prelude hiding (lookup)
 
 import Types
@@ -32,13 +35,14 @@ type AppM = ReaderT AppEnv Handler
 
 type Homepage = H.Html
 type API = Get '[HTML] Homepage
+      :<|> "game" :> Get '[HTML] H.Html
       :<|> "game" :> Capture "gameid" T.Text :> Get '[HTML] H.Html
 
 api :: Proxy API
 api = Proxy
 
 server :: ServerT API AppM
-server = homepage :<|> gamePage
+server = homepage :<|> newGamePage :<|> gamePage
 
 siteCSS :: Css
 siteCSS = do
@@ -51,15 +55,20 @@ getGames = do
   ref <- wiredAsk
   liftIO $ readIORef ref
 
-renderGame :: Maybe Game -> H.Html
-renderGame possibleGame = do
-       H.table $ do
-       forM_ [1..gameSize] $ \row -> do
-         H.tr ! HA.class_ "grid-row" $ do
-           forM_ [1..gameSize] $ \column -> do
-             let elemName = H.stringValue ("square-" ++ (show row) ++ "-" ++ (show column))
-             H.td ! HA.id elemName ! HA.class_ "grid-square" $ do
-               H.toMarkup $ show (row, column)
+modifyGamesMap :: (GamesMap -> GamesMap) -> AppM ()
+modifyGamesMap transform = do
+  ref <- wiredAsk
+  liftIO $ modifyIORef ref transform
+
+renderGame :: Game -> H.Html
+renderGame game = do
+  H.table $ do
+    forM_ [1..gameSize] $ \row -> do
+      H.tr ! HA.class_ "grid-row" $ do
+        forM_ [1..gameSize] $ \column -> do
+          let elemName = H.stringValue ("square-" ++ (show row) ++ "-" ++ (show column))
+          H.td ! HA.id elemName ! HA.class_ "grid-square" $ do
+            H.toMarkup $ show (row, column)
 
 
 homepage :: AppM Homepage
@@ -75,10 +84,21 @@ gamePage :: T.Text -> AppM H.Html
 gamePage gameID = do
   games <- getGames
   let possibleGame = lookup gameID games
-  
+  case possibleGame of
+    Nothing -> throwError err404
+    Just g  -> return $ renderGame g
 
+newGamePage :: AppM H.Html
+newGamePage = do
+  uuid <- liftIO $ do
+    generated <- UUID.nextRandom
+    return $ UUID.toText generated
+  modifyGamesMap $ insert uuid newGame
+  let redirectHeaders = [("Location", T.encodeUtf8 ("/game/" `mappend` uuid))]
+  throwError $ err307 { errHeaders = redirectHeaders }
+  
 appNaturalTransform :: AppEnv -> AppM a -> Handler a
-appNaturalTransform e a = runReaderT a e
+appNaturalTransform = flip runReaderT
 
 app :: AppEnv -> Application
 app env = serve api $ hoistServer api (appNaturalTransform env) server
