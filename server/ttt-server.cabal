@@ -23,6 +23,7 @@ executable ttt-server
                      , servant-server
                      , servant-blaze
                      , blaze-html
+                     , blaze-svg
                      , warp
                      , wai
                      , clay
