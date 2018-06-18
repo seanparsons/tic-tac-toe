@@ -35,5 +35,6 @@ executable ttt-server
                      , hashable
                      , mtl
                      , uuid
+                     , aeson
   hs-source-dirs:      src
   default-language:    Haskell2010

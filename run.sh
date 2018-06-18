@@ -3,4 +3,5 @@
 set -e
 
 ./build.sh
-./project-builder/_build/ttt-server
+cd ./project-builder/_build
+./ttt-server

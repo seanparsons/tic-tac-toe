@@ -23,6 +23,7 @@ type instance RuleResult AppBuildPath = FilePath
 
 pureScriptModules :: [(FilePattern, String)]
 pureScriptModules = [ ("main.js", "Main")
+                    , ("game.js", "Game")
                     ]
 
 serverPlanJsonToPath :: PlanJson -> IO FilePath
@@ -52,7 +53,7 @@ getStdout (_, (Stdout contents), _) = contents
 main :: IO ()
 main = shakeArgs shakeOptions{shakeFiles="_build", shakeThreads = 0} $ do
   let serverExecutable = "_build/ttt-server" <.> exe
-  let bundledPurescriptModules = fmap (\m -> "_build/modules" </> (fst m)) pureScriptModules
+  let bundledPurescriptModules = fmap (\m -> "_build/javascript" </> (fst m)) pureScriptModules
 
   getBuildPath <- addOracle determineBuildPath
 
@@ -69,7 +70,7 @@ main = shakeArgs shakeOptions{shakeFiles="_build", shakeThreads = 0} $ do
     cmd_ (Cwd "../frontend") buildPureScriptProject
     copyFileChanged "../frontend/psc-package.json" out
 
-  forM_ pureScriptModules $ \(builtFile, psModule) -> ("_build/modules/" ++ builtFile) %> \out -> do
+  forM_ pureScriptModules $ \(builtFile, psModule) -> ("_build/javascript/" ++ builtFile) %> \out -> do
     putNormal ("Create Purescript Module " ++ psModule)
     need ["_build/.psc-package.json"]
     compiledPureScriptFiles <- getDirectoryFiles "_build/compiled-purescript" ["//*.js"]

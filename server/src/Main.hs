@@ -8,10 +8,12 @@ import Control.Lens
 import Control.Monad.Reader
 import Control.Monad.Reader.Wiring
 import Clay hiding ((!), empty)
+import Data.Either
 import Data.Foldable
 import Data.IORef
 import Data.HashMap.Strict hiding ((!))
 import Data.Maybe
+import Data.String (fromString)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import Network.Wai
@@ -37,15 +39,24 @@ type AppEnv = IORef GamesMap
 type AppM = ReaderT AppEnv Handler
 
 type Homepage = H.Html
-type API = Get '[HTML] Homepage
+type CoreAPI = Get '[HTML] Homepage
       :<|> "game" :> Get '[HTML] H.Html
       :<|> "game" :> Capture "gameid" T.Text :> Get '[HTML] H.Html
+      :<|> "game" :> Capture "gameid" T.Text :> "playmove" :> ReqBody '[JSON] GameMove :> Post '[JSON] (Maybe NoughtOrCross)
 
-api :: Proxy API
-api = Proxy
+type FullAPI = CoreAPI :<|> "scripts" :> Raw
 
-server :: ServerT API AppM
-server = homepage :<|> newGamePage :<|> gamePage
+coreAPI :: Proxy CoreAPI
+coreAPI = Proxy
+
+fullAPI :: Proxy FullAPI
+fullAPI = Proxy
+
+server :: ServerT CoreAPI AppM
+server = homepage
+       :<|> newGamePage
+       :<|> gamePage
+       :<|> playMoveEndpoint
 
 siteCSS :: Css
 siteCSS = do
@@ -98,24 +109,23 @@ renderPageContents contents = H.docTypeHtml $ do
     H.style ! HA.type_ "text/css" $ do
       H.toMarkup $ render siteCSS
 
-renderGame :: Game -> H.Html
-renderGame game = renderPageContents $ do
+playMoveClickHandler :: T.Text -> Int -> Int -> Game -> H.AttributeValue
+playMoveClickHandler gameID row column (Game _ noughtOrCross) =
+  mconcat ["PS.Game.playMove('", fromString $ T.unpack gameID, "')(", fromString $ show row, ")(", fromString $ show column, ")('", fromString $ show noughtOrCross, "')"]
+
+renderGame :: T.Text -> Game -> H.Html
+renderGame gameID game = renderPageContents $ do
   H.div ! HA.class_ "grid" $ do
     forM_ [1..gameSize] $ \row -> do
       H.div ! HA.class_ "grid-row" $ do
         forM_ [1..gameSize] $ \column -> do
           let elemName = H.stringValue ("square-" ++ (show row) ++ "-" ++ (show column))
-          H.div ! HA.id elemName ! HA.class_ "grid-square" $ do
+          let handler = playMoveClickHandler gameID row column game
+          H.div ! HA.id elemName ! HA.class_ "grid-square" ! HA.onclick handler $ do
             renderNoughtOrCross (game ^. cells . at (row, column))
 
 homepage :: AppM Homepage
-homepage = return $ renderPageContents $ do
-  H.head $ do
-    H.title "Tic-Tac-Toe"
-  H.body $ do
-    H.h1 "Tic-Tac-Toe"
-    H.style ! HA.type_ "text/css" $ do
-      H.toMarkup $ render siteCSS
+homepage = return $ renderPageContents $ mempty
 
 gamePage :: T.Text -> AppM H.Html
 gamePage gameID = do
@@ -124,7 +134,20 @@ gamePage gameID = do
   let possibleGame = lookup gameID games
   case possibleGame of
     Nothing -> throwError err404
-    Just g  -> return $ renderGame g
+    Just g  -> return $ do
+      renderGame gameID g
+      H.script ! HA.src "/scripts/game.js" ! HA.type_ "application/javascript" $ do
+        mempty
+  
+playMoveEndpoint :: T.Text -> GameMove -> AppM (Maybe NoughtOrCross)
+playMoveEndpoint gameID (GameMove movePlayer moveRow moveColumn) = do
+  liftIO $ print ("play move", gameID, movePlayer, moveRow, moveColumn)
+  games <- getGames
+  game <- maybe (throwError err404) return (lookup gameID games)
+  let moveResult = playGameMove moveRow moveColumn movePlayer game
+  (updatedGame, possibleWinner) <- either (\_ -> throwError err412) return moveResult
+  modifyGamesMap (insert gameID updatedGame)
+  return possibleWinner
 
 newGamePage :: AppM H.Html
 newGamePage = do
@@ -139,7 +162,7 @@ appNaturalTransform :: AppEnv -> AppM a -> Handler a
 appNaturalTransform = flip runReaderT
 
 app :: AppEnv -> Application
-app env = serve api $ hoistServer api (appNaturalTransform env) server
+app env = serve fullAPI $ (hoistServer coreAPI (appNaturalTransform env) server :<|> serveDirectoryWebApp "javascript")
 
 main :: IO ()
 main = do

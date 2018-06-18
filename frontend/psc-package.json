@@ -5,7 +5,11 @@
   "depends": [
     "prelude",
     "psci-support",
+    "argonaut-core",
     "argonaut-generic-codecs",
-    "dom"
+    "dom",
+    "aff",
+    "affjax",
+    "maps"
   ]
 }
