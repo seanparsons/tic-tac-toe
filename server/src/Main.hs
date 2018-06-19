@@ -111,7 +111,7 @@ renderPageContents contents = H.docTypeHtml $ do
 
 playMoveClickHandler :: T.Text -> Int -> Int -> Game -> H.AttributeValue
 playMoveClickHandler gameID row column (Game _ noughtOrCross) =
-  mconcat ["PS.Game.playMove('", fromString $ T.unpack gameID, "')(", fromString $ show row, ")(", fromString $ show column, ")('", fromString $ show noughtOrCross, "')"]
+  mconcat ["PS.Game.playMove('", fromString $ T.unpack gameID, "')(", fromString $ show row, ")(", fromString $ show column, ")('", fromString $ show noughtOrCross, "')()"]
 
 renderGame :: T.Text -> Game -> H.Html
 renderGame gameID game = renderPageContents $ do

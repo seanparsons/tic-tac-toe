@@ -8,9 +8,10 @@ module Types where
 import Data.Aeson
 import Data.Aeson.TH
 import Data.Aeson.Types
+import Data.Char (toLower)
 import Data.Hashable
 import Data.HashMap.Strict
-import Data.Text hiding (empty, drop)
+import Data.Text hiding (empty, drop, toLower)
 import GHC.Generics
 
 data NoughtOrCross = Nought
@@ -50,4 +51,4 @@ data GameMove = GameMove
               , _moveColumn   :: Int
               } deriving (Eq, Show, Ord, Generic)
 
-$(deriveJSON defaultOptions{fieldLabelModifier = drop 5} ''GameMove)
+$(deriveJSON defaultOptions{fieldLabelModifier = drop 5 . Prelude.map toLower} ''GameMove)
