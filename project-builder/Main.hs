@@ -37,8 +37,8 @@ serverPlanJsonToPath planJson = do
 
 determineBuildPath :: MonadIO m => AppBuildPath -> m FilePath
 determineBuildPath (AppBuildPath _) = liftIO $ do
-  planDetails <- findAndDecodePlanJson $ Just "_build/server"
-  path <- serverPlanJsonToPath $ fst planDetails
+  planDetails <- decodePlanJson "_build/server"
+  path <- serverPlanJsonToPath planDetails
   return path
 
 buildPureScriptProject :: String

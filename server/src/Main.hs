@@ -140,8 +140,12 @@ playMoveEndpoint :: T.Text -> GameMove -> AppM (Maybe NoughtOrCross)
 playMoveEndpoint gameID (GameMove movePlayer moveRow moveColumn) = do
   liftIO $ print ("play move", gameID, movePlayer, moveRow, moveColumn)
   games <- getGames
+  liftIO $ print "getGames"
   game <- maybe (throwError err404) return (lookup gameID games)
+  liftIO $ print "throwError"
   let moveResult = playGameMove moveRow moveColumn movePlayer game
+  liftIO $ print "getGames"
+  liftIO $ print moveResult
   (updatedGame, possibleWinner) <- either (\_ -> throwError err412) return moveResult
   modifyGamesMap (insert gameID updatedGame)
   return possibleWinner

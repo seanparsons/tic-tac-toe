@@ -33,10 +33,10 @@ playGameMove :: Int -> Int -> NoughtOrCross -> Game -> Either GameMoveError (Gam
 playGameMove row column noughtOrCross game = do
   let key = (row, column)
   let playedAlready = game ^. cells . at key
-  _ <- maybeToEither PositionOccupied playedAlready
+  _ <- if isJust playedAlready then Left PositionOccupied else Right ()
   _ <- unless (game ^. toPlayNext == noughtOrCross) (Left NotYourTurn)
   let updatedGame = game & (cells . at key . _Just) .~ noughtOrCross
-  Right (updatedGame, determineWinner updatedGame)
+  return (updatedGame, determineWinner updatedGame)
 
 determineWinner :: Game -> Maybe NoughtOrCross
 determineWinner game =

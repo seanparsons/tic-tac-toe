@@ -19,7 +19,7 @@ executable ttt-server
   other-modules:       Types
                      , Game
   -- other-extensions:    
-  build-depends:       base >=4.9 && <4.10
+  build-depends:       base >=4.9 && <4.12
                      , servant-server
                      , servant-blaze
                      , blaze-html
