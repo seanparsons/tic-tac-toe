@@ -39,24 +39,21 @@ type AppEnv = IORef GamesMap
 type AppM = ReaderT AppEnv Handler
 
 type Homepage = H.Html
-type CoreAPI = Get '[HTML] Homepage
+type API = Get '[HTML] Homepage
       :<|> "game" :> Get '[HTML] H.Html
       :<|> "game" :> Capture "gameid" T.Text :> Get '[HTML] H.Html
       :<|> "game" :> Capture "gameid" T.Text :> "playmove" :> ReqBody '[JSON] GameMove :> Post '[JSON] (Maybe NoughtOrCross)
+      :<|> "scripts" :> Raw
 
-type FullAPI = CoreAPI :<|> "scripts" :> Raw
+api :: Proxy API
+api = Proxy
 
-coreAPI :: Proxy CoreAPI
-coreAPI = Proxy
-
-fullAPI :: Proxy FullAPI
-fullAPI = Proxy
-
-server :: ServerT CoreAPI AppM
+server :: ServerT API AppM
 server = homepage
        :<|> newGamePage
        :<|> gamePage
        :<|> playMoveEndpoint
+       :<|> (Tagged $ unTagged $ serveDirectoryWebApp "javascript")
 
 siteCSS :: Css
 siteCSS = do
@@ -162,7 +159,7 @@ appNaturalTransform :: AppEnv -> AppM a -> Handler a
 appNaturalTransform = flip runReaderT
 
 app :: AppEnv -> Application
-app env = serve fullAPI $ (hoistServer coreAPI (appNaturalTransform env) server :<|> serveDirectoryWebApp "javascript")
+app env = serve api $ hoistServer api (appNaturalTransform env) server
 
 main :: IO ()
 main = do
