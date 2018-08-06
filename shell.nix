@@ -6,6 +6,8 @@ let
 in pkgs.stdenv.lib.overrideDerivation release.ttt-server.env (oldAttrs: rec {
   nativeBuildInputs = (oldAttrs.nativeBuildInputs or []) ++ [
     release.cabal
+    pkgs.zlib.dev
+    pkgs.zlib.out
     pkgs.awscli
     pkgs.haskellPackages.cabal2nix
     pkgs.haskellPackages.purescript

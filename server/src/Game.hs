@@ -9,6 +9,7 @@ import Control.Lens
 import Control.Monad
 import Data.Either.Extra
 import Data.HashMap.Strict
+import Data.Maybe
 import Data.Monoid
 import GHC.Generics
 import Types

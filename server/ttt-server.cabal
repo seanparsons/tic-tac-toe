@@ -30,7 +30,6 @@ executable ttt-server
                      , unordered-containers
                      , text
                      , lens
-                     , wiring
                      , extra
                      , hashable
                      , mtl

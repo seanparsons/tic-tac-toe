@@ -6,7 +6,6 @@ module Main where
 
 import Control.Lens
 import Control.Monad.Reader
-import Control.Monad.Reader.Wiring
 import Clay hiding ((!), empty)
 import Data.Either
 import Data.Foldable
@@ -78,13 +77,13 @@ siteCSS = do
 
 getGames :: AppM GamesMap
 getGames = do
-  ref <- wiredAsk
+  ref <- ask
   liftIO $ readIORef ref
 
 modifyGamesMap :: (GamesMap -> GamesMap) -> AppM ()
-modifyGamesMap transform = do
-  ref <- wiredAsk
-  liftIO $ atomicModifyIORef' ref (\m -> (transform m, ()))
+modifyGamesMap mapTransform = do
+  ref <- ask
+  liftIO $ atomicModifyIORef' ref (\m -> (mapTransform m, ()))
 
 renderNoughtOrCross :: Maybe NoughtOrCross -> H.Html
 renderNoughtOrCross Nothing       = mempty
